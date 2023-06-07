@@ -154,6 +154,7 @@ version = "0.1.0"
 dependencies = [
  "async-graphql",
  "async-graphql-warp",
+ "database",
  "hmac",
  "http",
  "postgres",
@@ -267,6 +268,21 @@ dependencies = [
  "darling_core",
  "quote",
  "syn",
+]
+
+[[package]]
+name = "database"
+version = "0.1.0"
+dependencies = [
+ "async-graphql",
+ "async-graphql-warp",
+ "hmac",
+ "http",
+ "postgres",
+ "rawsql",
+ "serde",
+ "tokio",
+ "warp",
 ]
 
 [[package]]
