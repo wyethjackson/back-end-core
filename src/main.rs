@@ -1,49 +1,46 @@
-use async_graphql::{
-    http::{playground_source, GraphQLPlaygroundConfig},
-    EmptyMutation, EmptySubscription, Schema
-};
-use async_graphql_warp::{GraphQLBadRequest, GraphQLResponse};
 use http::StatusCode;
 use std::convert::Infallible;
-use warp::{http::Response as HttpResponse, Filter, Rejection};
-mod schema;
+use warp::{http::Response as HttpResponse, Filter, Rejection, fs, Reply};
+use std::path::Path;
+use serde::{Deserialize, Serialize};
+use postgres::{Client, NoTls};
+
+mod models {
+    pub mod user_model;
+}
+
+use models::user_model;
+
+#[derive(Debug, Deserialize, Serialize)]
+struct UserData {
+    name: String,
+    age: u32,
+}
 
 #[tokio::main]
 async fn main() {
-    let schema = Schema::build(schema::query::Query, EmptyMutation, EmptySubscription).finish();
+    let hello = warp::path("hello")
+        .map(|| "Hello, world!");
 
-    println!("Playground: http://localhost:5010");
+    let index = warp::path::end()
+        .and(warp::fs::file("./static/index.html"));
 
-    let graphql_post = async_graphql_warp::graphql(schema).and_then(
-        |(schema, request): (
-            Schema<schema::query::Query, EmptyMutation, EmptySubscription>,
-            async_graphql::Request,
-        )| async move {
-            Ok::<_, Infallible>(GraphQLResponse::from(schema.execute(request).await))
-        },
-    );
+    user_model::get_user(1);
+      // Define the POST endpoint filter
+    let user = warp::path("user")
+        .and(warp::post())
+        .and(warp::body::json())
+        .map(|user_data: UserData| format!("Received user: {:?}", user_data));
 
-    let graphql_playground = warp::path::end().and(warp::get()).map(|| {
-        HttpResponse::builder()
-            .header("content-type", "text/html")
-            .body(playground_source(GraphQLPlaygroundConfig::new("/")))
-    });
+    let routes = hello
+        .or(index)
+        .or(user);
 
-    let routes = graphql_playground
-        .or(graphql_post)
-        .recover(|err: Rejection| async move {
-            if let Some(GraphQLBadRequest(err)) = err.find() {
-                return Ok::<_, Infallible>(warp::reply::with_status(
-                    err.to_string(),
-                    StatusCode::BAD_REQUEST,
-                ));
-            }
-
-            Ok(warp::reply::with_status(
-                "INTERNAL_SERVER_ERROR".to_string(),
-                StatusCode::INTERNAL_SERVER_ERROR,
-            ))
-        });
-
-    warp::serve(routes).run(([0, 0, 0, 0], 5010)).await;
+    warp::serve(routes)
+        .run(([127, 0, 0, 1], 3030))
+        .await;
 }
+
+
+
+
